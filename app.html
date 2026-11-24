@@ -229,7 +229,7 @@
       <div class="sec-body">
         <div class="row"><input type="text" id="fileName" aria-label="File name" /></div>
         <div class="row">
-          <button type="button" class="btn-primary" id="saveBtn">Save file…</button>
+          <button type="button" class="btn-primary" id="saveBtn">Download file</button>
           <button type="button" class="btn" id="retestBtn" title="Read the board again after you change it">Re-test</button>
         </div>
         <div class="row hidden" id="anywayRow">
@@ -237,9 +237,9 @@
         </div>
         <div class="status" id="saveStatus" role="status" aria-live="polite"></div>
         <div class="fallback hidden" id="fallback">
-          <span id="fallbackText">Didn’t see a save tab? Use one of these instead:</span>
+          <span id="fallbackText">Didn’t see the download? Try again, or copy the file instead:</span>
           <div class="row">
-            <button type="button" class="btn" id="dlHere">Download</button>
+            <button type="button" class="btn" id="dlHere">Download again</button>
             <button type="button" class="btn" id="copyJson">Copy file contents</button>
           </div>
           <div class="hint hidden" id="copyHelp">Copied. Open Notepad, press Ctrl+V, then File → Save as → “All files” and name it <b id="copyName"></b>.</div>
@@ -248,7 +248,7 @@
     </section>
   </div>
 
-  <script src="converter.js"></script>
-  <script src="app.js"></script>
+  <script src="converter.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

@@ -10,7 +10,7 @@
     // Miro loads this page in the background. Clicking the app icon opens the panel.
     async function init() {
       miro.board.ui.on('icon:click', async () => {
-        await miro.board.ui.openPanel({ url: 'app.html' });
+        await miro.board.ui.openPanel({ url: 'app.html?v=5' });
       });
     }
     init();

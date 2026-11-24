@@ -198,10 +198,8 @@
   async function exportAuto() {
     if (!state.frameId) return setStatus('testStatus', 'Choose the frame to export first.');
     if (busy) return;
-    const win = openSaveTab(); // open now, while the click still counts, then fill it in
     const r = await runSteps(true, true);
     if (!r || !r.canExport) {
-      if (win) win.close();
       if (r) {
         const why = r.issues.find((i) => i.severity === 'error');
         progress.fail('save', why ? why.detail : 'This frame has nothing to export.');
@@ -209,7 +207,7 @@
       return;
     }
     progress.step('save'); await paint();
-    deliver(win, fileNameValue(), JSON.stringify(r.typebot, null, 2));
+    deliver(fileNameValue(), JSON.stringify(r.typebot, null, 2));
     progress.done('save');
     progress.finish(`Exported at ${timeNow()}: ${progress.lastSummary}.`);
   }
@@ -342,15 +340,7 @@
   }
 
   // ───────── save ─────────
-  // Browsers only show the "choose a folder" window from a normal tab, not from inside Miro,
-  // so saving happens in a small tab of this app. The file travels in the link's # part and never leaves the computer.
-  function openSaveTab() { return window.open('save.html#pending', '_blank'); }
-  function toBase64(text) {
-    const bytes = new TextEncoder().encode(text);
-    let bin = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-    return btoa(bin);
-  }
+  // ───────── save: a normal browser download ─────────
   function fileNameValue() {
     let n = $('fileName').value.trim() || (state.result && state.result.fileName) || 'typebot.json';
     n = n.replace(/[\\/:*?"<>|]+/g, '');
@@ -362,28 +352,17 @@
     a.download = name;
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 30000);
   }
-  function deliver(win, name, text) {
+  function deliver(name, text) {
     lastFile = { name, text };
+    downloadHere(name, text);
     $('fallback').classList.remove('hidden');
     $('copyHelp').classList.add('hidden');
     setOpen(document.querySelector('.sec[data-sec="save"]'), true, false);
-    if (win && !win.closed) {
-      try {
-        win.location.href = new URL('save.html', location.href).href + '#' + encodeURIComponent(name) + '|' + toBase64(text);
-        setStatus('saveStatus', 'Opening the save tab…', true);
-        $('fallbackText').textContent = 'Didn’t see a save tab? Use one of these instead:';
-        clearTimeout(confirmTimer);
-        confirmTimer = setTimeout(() => {
-          setStatus('saveStatus', 'The save tab didn’t answer. Use “Download” or “Copy file contents”.');
-        }, 4000);
-        return;
-      } catch (_) { /* fall through */ }
-    }
-    setStatus('saveStatus', 'Your browser blocked the save tab. Use “Download” or “Copy file contents”.');
-    $('fallbackText').textContent = 'Save the file with one of these:';
+    setStatus('saveStatus', `Downloading “${name}”. Your browser saves it like any other download.`, true);
   }
+
   $('saveBtn').addEventListener('click', () => {
     if (!state.result) return setStatus('saveStatus', 'Press “Test flow” first.');
     if (!state.result.canExport) {
@@ -395,17 +374,10 @@
       sec.classList.remove('flash'); void sec.offsetWidth; sec.classList.add('flash');
       return;
     }
-    deliver(openSaveTab(), fileNameValue(), JSON.stringify(state.result.typebot, null, 2));
+    deliver(fileNameValue(), JSON.stringify(state.result.typebot, null, 2));
   });
 
-  // the save tab tells us it received the file
-  let lastFile = null, confirmTimer = null;
-  window.addEventListener('message', (e) => {
-    if (!e.data || e.data.type !== 'tbx-received') return;
-    clearTimeout(confirmTimer);
-    setStatus('saveStatus', 'The save tab is open. Switch to it and choose the folder.', true);
-    $('fallbackText').textContent = 'Save tab not working? Use one of these instead:';
-  });
+  let lastFile = null;
   $('dlHere').addEventListener('click', () => {
     if (!lastFile) return;
     downloadHere(lastFile.name, lastFile.text);
