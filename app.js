@@ -121,14 +121,68 @@
     return MiroTypebot.convert(state.input, { limit: state.limit, overrides });
   }
 
+  // ───────── progress ─────────
+  const paint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 120)));
+  let busy = false;
+  const progress = {
+    start(withSave) {
+      $('progress').classList.remove('hidden');
+      $('lastRun').textContent = '';
+      document.querySelectorAll('#steps li').forEach((li) => (li.className = ''));
+      document.querySelector('#steps [data-step="save"]').classList.toggle('hidden', !withSave);
+      this.total = withSave ? 4 : 3; this.doneCount = 0; this.setBar();
+      setBusy(true);
+    },
+    step(name) { const li = document.querySelector(`#steps [data-step="${name}"]`); li.className = 'doing'; },
+    done(name) { document.querySelector(`#steps [data-step="${name}"]`).className = 'done'; this.doneCount++; this.setBar(); },
+    fail(name, msg) {
+      document.querySelector(`#steps [data-step="${name}"]`).className = 'failed';
+      $('lastRun').textContent = msg;
+      setBusy(false);
+    },
+    finish(msg) { $('bar').style.width = '100%'; $('lastRun').textContent = msg; setBusy(false); },
+    setBar() { $('bar').style.width = Math.round((this.doneCount / this.total) * 100) + '%'; },
+  };
+  function setBusy(on) {
+    busy = on;
+    ['testBtn', 'bypassBtn', 'retestBtn', 'anywayBtn'].forEach((id) => ($(id).disabled = on));
+    $('testBtn').textContent = on ? 'Working…' : 'Test flow';
+  }
+  const timeNow = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // read → build → check, shown step by step
+  async function runSteps(autoAll, withSave) {
+    if (!state.frameId) { setStatus('testStatus', 'Choose the frame to export first.'); return null; }
+    if (busy) return null;
+    setStatus('testStatus', '');
+    progress.start(withSave);
+    $('progress').scrollIntoView({ block: 'nearest' });
+    progress.step('read'); await paint();
+    try { state.input = await readFrame(state.frameId); }
+    catch (err) { progress.fail('read', err.message || 'Couldn’t read the frame. Try again.'); return null; }
+    progress.done('read');
+    progress.step('build'); await paint();
+    let r;
+    try { r = convertNow(autoAll); }
+    catch (err) { progress.fail('build', 'Something in this frame couldn’t be converted: ' + err.message); return null; }
+    progress.done('build');
+    progress.step('check'); await paint();
+    const technical = r.typebot ? MiroTypebot.validate(r.typebot).filter((x) => !/^(Button without edge|Reply title|List row)/.test(x)) : ['Nothing to export'];
+    if (technical.length && r.typebot) { progress.fail('check', 'The import check failed: ' + technical.join('; ')); return null; }
+    progress.done('check');
+    state.result = r;
+    render(r, autoAll);
+    const errs = r.issues.filter((i) => i.severity === 'error').length;
+    const summary = `${r.stats.blocks} components, ${errs ? errs + ' to fix' : 'no problems'}`;
+    if (!withSave) progress.finish(`Tested at ${timeNow()}: ${summary}.`);
+    else progress.lastSummary = summary;
+    return r;
+  }
+
   // ───────── test ─────────
   async function testFromBoard() {
-    if (!state.frameId) return setStatus('testStatus', 'Choose the frame to export first.');
-    setStatus('testStatus', 'Reading the frame…');
-    try { state.input = await readFrame(state.frameId); }
-    catch (err) { return setStatus('testStatus', err.message || 'Couldn’t read the frame. Try again.'); }
-    setStatus('testStatus', '');
-    run();
+    const r = await runSteps(false, false);
+    if (r) $('verdict').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
   $('testBtn').addEventListener('click', testFromBoard);
   $('retestBtn').addEventListener('click', testFromBoard);
@@ -139,28 +193,26 @@
 
   // ───────── export without testing ─────────
   // Every safe fix is applied automatically and the file still goes through the import check.
-  $('bypassBtn').addEventListener('click', async () => {
+  async function exportAuto() {
     if (!state.frameId) return setStatus('testStatus', 'Choose the frame to export first.');
+    if (busy) return;
     const win = openSaveTab(); // open now, while the click still counts, then fill it in
-    setStatus('testStatus', 'Reading the frame…');
-    try { state.input = await readFrame(state.frameId); }
-    catch (err) { if (win) win.close(); return setStatus('testStatus', err.message || 'Couldn’t read the frame. Try again.'); }
-    setStatus('testStatus', '');
-    exportAuto(win);
-  });
-  $('anywayBtn').addEventListener('click', () => exportAuto(openSaveTab()));
-
-  function exportAuto(win) {
-    const r = convertNow(true);
-    state.result = r;
-    render(r, true);
-    if (!r.canExport) {
+    const r = await runSteps(true, true);
+    if (!r || !r.canExport) {
       if (win) win.close();
-      const why = r.issues.find((i) => i.severity === 'error');
-      return setStatus('saveStatus', why ? why.detail : 'This frame has nothing to export.');
+      if (r) {
+        const why = r.issues.find((i) => i.severity === 'error');
+        progress.fail('save', why ? why.detail : 'This frame has nothing to export.');
+      }
+      return;
     }
+    progress.step('save'); await paint();
     deliver(win, fileNameValue(), JSON.stringify(r.typebot, null, 2));
+    progress.done('save');
+    progress.finish(`Exported at ${timeNow()}: ${progress.lastSummary}.`);
   }
+  $('bypassBtn').addEventListener('click', exportAuto);
+  $('anywayBtn').addEventListener('click', exportAuto);
 
   function applyPatch(p) {
     const o = state.overrides;
@@ -236,7 +288,8 @@
       $('fileName').value = r.fileName;
       $('fileName').dataset.auto = '1';
     }
-    $('saveBtn').disabled = !r.canExport;
+    $('saveBtn').disabled = false;
+    $('saveBtn').classList.toggle('is-blocked', !r.canExport);
     $('anywayRow').classList.toggle('hidden', r.canExport || !r.typebot);
     $('sumSave').textContent = r.canExport ? 'Ready' : 'Blocked';
     if (!auto) setStatus('saveStatus', '');
@@ -310,18 +363,65 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
   }
   function deliver(win, name, text) {
+    lastFile = { name, text };
+    $('fallback').classList.remove('hidden');
+    $('copyHelp').classList.add('hidden');
+    setOpen(document.querySelector('.sec[data-sec="save"]'), true, false);
     if (win && !win.closed) {
       try {
         win.location.href = new URL('save.html', location.href).href + '#' + encodeURIComponent(name) + '|' + toBase64(text);
-        return setStatus('saveStatus', 'A save tab opened. Choose the folder there.', true);
+        setStatus('saveStatus', 'Opening the save tab…', true);
+        $('fallbackText').textContent = 'Didn’t see a save tab? Use one of these instead:';
+        clearTimeout(confirmTimer);
+        confirmTimer = setTimeout(() => {
+          setStatus('saveStatus', 'The save tab didn’t answer. Use “Download” or “Copy file contents”.');
+        }, 4000);
+        return;
       } catch (_) { /* fall through */ }
     }
-    downloadHere(name, text);
-    setStatus('saveStatus', `The save tab was blocked, so “${name}” went to your Downloads folder.`, true);
+    setStatus('saveStatus', 'Your browser blocked the save tab. Use “Download” or “Copy file contents”.');
+    $('fallbackText').textContent = 'Save the file with one of these:';
   }
   $('saveBtn').addEventListener('click', () => {
-    if (!state.result || !state.result.canExport) return;
+    if (!state.result) return setStatus('saveStatus', 'Press “Test flow” first.');
+    if (!state.result.canExport) {
+      const n = state.result.issues.filter((i) => i.severity === 'error').length;
+      setStatus('saveStatus', `Can’t save yet: ${n} red problem${n > 1 ? 's' : ''} in “Must fix”. Fix ${n > 1 ? 'them' : 'it'}, or press “Export anyway”.`);
+      const sec = $('secErrors');
+      setOpen(sec, true, false);
+      sec.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      sec.classList.remove('flash'); void sec.offsetWidth; sec.classList.add('flash');
+      return;
+    }
     deliver(openSaveTab(), fileNameValue(), JSON.stringify(state.result.typebot, null, 2));
+  });
+
+  // the save tab tells us it received the file
+  let lastFile = null, confirmTimer = null;
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'tbx-received') return;
+    clearTimeout(confirmTimer);
+    setStatus('saveStatus', 'The save tab is open. Switch to it and choose the folder.', true);
+    $('fallbackText').textContent = 'Save tab not working? Use one of these instead:';
+  });
+  $('dlHere').addEventListener('click', () => {
+    if (!lastFile) return;
+    downloadHere(lastFile.name, lastFile.text);
+    setStatus('saveStatus', `Downloading “${lastFile.name}” to your Downloads folder. If nothing appears, use “Copy file contents”.`, true);
+  });
+  $('copyJson').addEventListener('click', async () => {
+    if (!lastFile) return;
+    let ok = false;
+    try { await navigator.clipboard.writeText(lastFile.text); ok = true; } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = lastFile.text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { ok = document.execCommand('copy'); } catch (_) { ok = false; }
+      ta.remove();
+    }
+    $('copyName').textContent = lastFile.name;
+    $('copyHelp').classList.toggle('hidden', !ok);
+    if (!ok) setStatus('saveStatus', 'Copying was blocked by the browser. Use “Download”.');
   });
 
   function setStatus(id, msg, good) {

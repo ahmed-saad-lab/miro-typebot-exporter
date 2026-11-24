@@ -52,7 +52,9 @@
 
     .btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
     .btn:hover { border-color: var(--ink); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
     .btn-primary { flex: 1; background: var(--ink); border: 1px solid var(--ink); color: #fff; padding: 10px; font-weight: 600; border-radius: 8px; cursor: pointer; }
+    .btn-primary.is-blocked { background: #7d8784; border-color: #7d8784; }
     .btn-primary:disabled { background: #9aa5a2; border-color: #9aa5a2; cursor: not-allowed; }
     .btn-small { padding: 4px 9px; font-size: 12px; }
     .btn-fix { background: var(--go); border-color: var(--go); color: #fff; }
@@ -94,6 +96,26 @@
     .status { font-size: 12px; color: var(--muted); margin-top: 6px; }
     .status:empty { display: none; }
     .status.good { color: var(--go); }
+    .progress { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; }
+    .bar { height: 6px; border-radius: 3px; background: var(--cell); overflow: hidden; margin-bottom: 8px; }
+    .bar span { display: block; height: 100%; width: 0; background: var(--go); transition: width .25s; }
+    .steps { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+    .steps li { display: flex; gap: 8px; align-items: center; padding: 2px 0; color: var(--muted); }
+    .steps li::before { content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); }
+    .steps li.doing { color: var(--ink); font-weight: 500; }
+    .steps li.doing::before { border-color: var(--go); border-top-color: transparent; animation: spin .7s linear infinite; }
+    .steps li.done { color: var(--ink); }
+    .steps li.done::before { background: var(--go); border-color: var(--go); }
+    .steps li.failed { color: var(--stop); }
+    .steps li.failed::before { background: var(--stop); border-color: var(--stop); }
+    .last-run { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .steps li.doing::before { animation: none; } .bar span { transition: none; } }
+    .flash { animation: flash 1.2s ease-out 1; }
+    @keyframes flash { 0% { box-shadow: 0 0 0 4px rgba(179,38,30,.35); } 100% { box-shadow: 0 0 0 0 rgba(179,38,30,0); } }
+    .fallback { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; font-size: 12px; color: var(--muted); }
+    .fallback .row { margin-top: 6px; }
+    .fallback .btn { flex: 1; font-size: 12.5px; padding: 6px; }
     .hidden { display: none !important; }
     .notice { background: var(--warn-soft); color: var(--warn); padding: 10px 12px; border-radius: 8px; font-size: 13px; }
     @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
@@ -148,6 +170,16 @@
       <button type="button" class="btn-primary" id="testBtn">Test flow</button>
       <button type="button" class="btn" id="bypassBtn">Export without testing</button>
     </div>
+    <div class="progress hidden" id="progress" role="status" aria-live="polite">
+      <div class="bar"><span id="bar"></span></div>
+      <ol class="steps" id="steps">
+        <li data-step="read">Reading the frame from the board</li>
+        <li data-step="build">Building the Typebot flow</li>
+        <li data-step="check">Running the Typebot import check</li>
+        <li data-step="save" class="hidden">Preparing the file to save</li>
+      </ol>
+      <div class="last-run" id="lastRun"></div>
+    </div>
     <div class="status" id="testStatus"></div>
   </div>
 
@@ -197,7 +229,15 @@
         <div class="row hidden" id="anywayRow">
           <button type="button" class="btn" id="anywayBtn" style="flex:1">Export anyway (fix automatically)</button>
         </div>
-        <div class="status" id="saveStatus"></div>
+        <div class="status" id="saveStatus" role="status" aria-live="polite"></div>
+        <div class="fallback hidden" id="fallback">
+          <span id="fallbackText">Didn’t see a save tab? Use one of these instead:</span>
+          <div class="row">
+            <button type="button" class="btn" id="dlHere">Download</button>
+            <button type="button" class="btn" id="copyJson">Copy file contents</button>
+          </div>
+          <div class="hint hidden" id="copyHelp">Copied. Open Notepad, press Ctrl+V, then File → Save as → “All files” and name it <b id="copyName"></b>.</div>
+        </div>
       </div>
     </section>
   </div>

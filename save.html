@@ -42,6 +42,7 @@
         started = true;
         $('pick').disabled = $('dl').disabled = false;
         start();
+        try { if (window.opener) window.opener.postMessage({ type: 'tbx-received' }, '*'); } catch (_) {}
       }
       window.addEventListener('hashchange', boot);
       boot();
