@@ -101,6 +101,8 @@
         url: c.url || '',
         x: c.x,
         y: c.y,
+        width: c.width,
+        height: c.height,
       }));
     const all = await miro.board.get({ type: 'connector' });
     const connectors = all
