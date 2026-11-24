@@ -109,12 +109,13 @@
     options = options || {};
     const limit = options.limit || 0;
     const ov = Object.assign(
-      { asMessage: [], skip: [], deadEnd: {}, truncateRows: false, numberDuplicates: false, placeholderEmail: [], startNodeId: null, keyword: '', menuTitle: '' },
+      { asMessage: [], skip: [], deadEnd: {}, truncateRows: false, numberDuplicates: false, placeholderEmail: [], startNodeId: null, keyword: '', menuTitle: '', useBoxLabels: false, autoAll: false },
       options.overrides || {}
     );
     const asMessage = new Set(ov.asMessage);
     const skip = new Set(ov.skip);
     const placeholderEmail = new Set(ov.placeholderEmail);
+    const AUTO = !!ov.autoAll; // export without testing: apply every safe fix automatically
 
     const newId = makeIdFactory();
     const autoFixes = [];
@@ -196,9 +197,7 @@
     }
     for (const n of nodes.values()) {
       if (n.kind === 'empty') {
-        addIssue('error', 'Empty box in the flow', 'This box has arrows but no text, so it can’t become a message.', n.id, [
-          { label: 'Skip this box', patch: { op: 'add', key: 'skip', value: n.id } },
-        ]);
+        addAuto('Skipped an empty box and joined the arrows around it', n.id);
         n.kind = 'pass';
         n.blockedEmpty = true;
       }
@@ -260,16 +259,24 @@
             else if (t.kind === 'end') dest = { t: 'end' };
             else if (t.out.length === 1) dest = resolve(t.out[0].to);
             else if (ov.deadEnd[t.id]) dest = { t: ov.deadEnd[t.id] };
-            else {
+            else if (AUTO) {
+              dest = { t: 'menu' };
+              addAuto(`Sent the button “${short(label, 30)}” back to the main menu (it had no next step)`, t.id);
+            } else {
               dest = null;
-              addIssue('error', 'Button leads nowhere', `The button “${short(label, 30)}” has no arrow to a next step.`, t.id, [
+              addIssue('warning', 'Button leads nowhere', `The button “${short(label, 30)}” has no arrow to a next step.`, t.id, [
                 { label: 'Go to main menu', patch: { op: 'map', key: 'deadEnd', mapKey: t.id, value: 'menu' } },
                 { label: 'End the chat', patch: { op: 'map', key: 'deadEnd', mapKey: t.id, value: 'end' } },
               ]);
             }
             items.push({ label, dest, nodeId: t.id });
+          } else if ((ov.useBoxLabels || AUTO) && t.text) {
+            items.push({ label: short(t.text.split('\n')[0], 20), dest: resolve(e.to), nodeId: t.id });
+            addAuto(`Used the start of “${short(t.text, 30)}” as button text`, t.id);
           } else {
-            addIssue('error', 'Branch without button text', `An arrow from this question goes straight to “${short(t.text || t.kind, 30)}”, so there is no button text. Add a label on the arrow, or put a short button box in between.`, n.id);
+            addIssue('error', 'Branch without button text', `An arrow from this question goes straight to “${short(t.text || t.kind, 30)}”, so there is no button text. Add a label on the arrow, or put a short button box in between.`, n.id, t.text ? [
+              { label: 'Use the box text as button', patch: { op: 'set', key: 'useBoxLabels', value: true } },
+            ] : []);
           }
         }
         n.branch = { kind: 'choice', items };
@@ -329,10 +336,8 @@
           roots.filter((r) => r !== start).slice(0, 3).map((r) => ({ label: `Start at “${short(r.text, 18)}”`, patch: { op: 'set', key: 'startNodeId', value: r.id } })));
       } else {
         const guess = flow.find((n) => RX.welcome.test(n.text)) || topLeft(flow);
-        addIssue('error', 'No starting box found', 'Every box has an arrow coming in, so the welcome message can’t be found.', guess.id, [
-          { label: `Start at “${short(guess.text, 18)}”`, patch: { op: 'set', key: 'startNodeId', value: guess.id } },
-        ]);
-        return finish(null);
+        start = guess;
+        addIssue('warning', 'Starting box chosen', `Every box has an arrow coming in, so the bot will start at “${short(guess.text, 40)}”.`, guess.id);
       }
     }
 
@@ -390,7 +395,7 @@
       items.forEach((i) => (counts[i.label] = (counts[i.label] || 0) + 1));
       const dups = Object.keys(counts).filter((k) => counts[k] > 1);
       if (dups.length) {
-        if (ov.numberDuplicates) {
+        if (ov.numberDuplicates || AUTO) {
           const seenL = {};
           items = items.map((i) => {
             seenL[i.label] = (seenL[i.label] || 0) + 1;
@@ -417,7 +422,7 @@
         if (items.length > 10) addIssue('error', 'More than 10 options', `WhatsApp lists hold up to 10 options; this question has ${items.length}. Split it into two questions on the board.`, n.id);
         const long = items.filter((i) => charLen(i.label) > 24);
         if (long.length) {
-          if (ov.truncateRows) {
+          if (ov.truncateRows || AUTO) {
             items = items.map((i) => (charLen(i.label) > 24 ? Object.assign({}, i, { label: Array.from(i.label).slice(0, 23).join('') + '…' }) : i));
             addAuto(`Shortened ${long.length} list option${long.length > 1 ? 's' : ''} to 24 characters`, n.id);
           } else {
@@ -461,7 +466,7 @@
           const m = n.text.match(RX.email);
           let email = m ? m[0] : '';
           if (!email) {
-            if (placeholderEmail.has(n.id)) {
+            if (placeholderEmail.has(n.id) || AUTO) {
               email = PLACEHOLDER_EMAIL;
               addIssue('warning', 'Placeholder team email', `Replace “${PLACEHOLDER_EMAIL}” with the real team email in Typebot.`, n.id);
             } else {
@@ -548,6 +553,7 @@
       if (d.t === 'node') return groupOfNode.get(d.id) || null;
       if (d.t === 'menu') {
         if (menuGroup) return menuGroup;
+        if (AUTO) return groupForDest({ t: 'end' });
         return null;
       }
       if (d.t === 'end') {
@@ -702,9 +708,11 @@
           stats.blocks++;
           stats.byType[b.type] = (stats.byType[b.type] || 0) + 1;
         }
+        stats.left = limit ? limit - stats.blocks : null;
         if (limit && stats.blocks > limit)
-          addIssue('error', 'Over the package limit', `This flow uses ${stats.blocks} components but the package allows ${limit}. Remove ${stats.blocks - limit} on the board, or pick a bigger package.`);
+          addIssue(AUTO ? 'warning' : 'error', 'Over the package limit', `This flow uses ${stats.blocks} components but the package allows ${limit}. Remove ${stats.blocks - limit} on the board, or pick a bigger package.`);
       }
+      if (AUTO && tb) issues.forEach((i) => { if (i.severity === 'error' && i.title !== 'Internal check failed') i.severity = 'warning'; });
       const order = { error: 0, warning: 1 };
       issues.sort((a, b) => order[a.severity] - order[b.severity]);
       const safe = String(name || 'bot').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-').slice(0, 60) || 'bot';

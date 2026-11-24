@@ -31,6 +31,21 @@
   <script>
     (function () {
       const $ = (id) => document.getElementById(id);
+      let started = false;
+      function boot() {
+        if (started) return;
+        if (location.hash === '#pending') {
+          $('pick').disabled = $('dl').disabled = true;
+          $('name').textContent = 'preparing…';
+          return; // the app fills in the file in a moment
+        }
+        started = true;
+        $('pick').disabled = $('dl').disabled = false;
+        start();
+      }
+      window.addEventListener('hashchange', boot);
+      boot();
+      function start() {
       const raw = location.hash.slice(1);
       const cut = raw.indexOf('|');
       if (cut < 0) {
@@ -85,6 +100,7 @@
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      }
       }
     })();
   </script>

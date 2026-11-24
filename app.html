@@ -10,166 +10,196 @@
   <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
   <style>
     :root {
-      --paper: #f4f6f5;
-      --card: #ffffff;
-      --ink: #172026;
-      --muted: #5b6770;
-      --line: #d6dddb;
-      --go: #157a5b;
-      --go-soft: #e3f2ec;
-      --warn: #9a5c00;
-      --warn-soft: #fbf0dc;
-      --stop: #b3261e;
-      --stop-soft: #fbe6e4;
-      --cell: #e4e9e7;
+      --paper: #f4f6f5; --card: #ffffff; --ink: #172026; --muted: #5b6770; --line: #d6dddb;
+      --go: #157a5b; --go-soft: #e3f2ec; --warn: #9a5c00; --warn-soft: #fbf0dc;
+      --stop: #b3261e; --stop-soft: #fbe6e4; --cell: #e4e9e7;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; }
     body {
       font: 14px/1.5 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
-      color: var(--ink);
-      background: var(--paper);
-      padding: 16px 14px 120px;
+      color: var(--ink); background: var(--paper); padding: 14px 12px 230px;
     }
-    h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
-    .lede { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
-    h2 { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
-    .field { margin-bottom: 18px; }
-    .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
-
-    .packages { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--card); }
-    .packages button { border: 0; border-inline-start: 1px solid var(--line); background: transparent; padding: 9px 0; font: inherit; font-weight: 600; cursor: pointer; color: var(--ink); }
-    .packages button:first-child { border-inline-start: 0; }
-    .packages button[aria-pressed="true"] { background: var(--ink); color: #fff; }
-
-    select, input[type="text"] {
-      width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink);
-    }
-    .row { display: flex; gap: 8px; align-items: center; }
-    .row > select { flex: 1; min-width: 0; }
-
+    .top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+    h1 { font-size: 17px; font-weight: 600; margin: 0; }
     button { font: inherit; }
-    .btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
-    .btn:hover { border-color: var(--ink); }
-    .btn-primary { width: 100%; background: var(--ink); border-color: var(--ink); color: #fff; padding: 11px; font-weight: 600; }
-    .btn-primary:disabled { background: #9aa5a2; border-color: #9aa5a2; cursor: not-allowed; }
-    .btn-small { padding: 4px 9px; font-size: 12px; }
-    .btn-fix { background: var(--go); border-color: var(--go); color: #fff; }
-    .btn-fix:hover { border-color: #0f5c44; background: #0f5c44; }
     .linkish { background: none; border: 0; color: var(--go); padding: 0; cursor: pointer; text-decoration: underline; font-size: 12px; }
     :focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
 
-    /* meter: one cell per component the package allows */
-    .meter-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 20px 0 14px; }
-    .meter-count { font-size: 28px; font-weight: 600; line-height: 1; }
-    .meter-count small { font-size: 14px; font-weight: 400; color: var(--muted); }
-    .meter { display: grid; gap: 3px; margin: 12px 0 8px; }
+    /* collapsible sections */
+    .sec { background: var(--card); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+    .sec-head {
+      width: 100%; display: flex; align-items: center; gap: 8px; background: none; border: 0; padding: 10px 12px;
+      cursor: pointer; text-align: start; color: var(--ink);
+    }
+    .sec-title { font-weight: 600; font-size: 13px; }
+    .sec-sum { margin-inline-start: auto; color: var(--muted); font-size: 12px; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; unicode-bidi: plaintext; }
+    .chev { flex: none; width: 16px; height: 16px; transition: transform .15s; }
+    .sec[data-open="false"] .chev { transform: rotate(-90deg); }
+    .sec-body { padding: 0 12px 12px; }
+    .sec[data-open="false"] .sec-body { display: none; }
+    .sec.is-error { border-color: #e7b4b0; }
+    .sec.is-error .sec-title, .sec.is-error .sec-sum { color: var(--stop); }
+
+    .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .packages { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .packages button { border: 0; border-inline-start: 1px solid var(--line); background: transparent; padding: 8px 0; font-weight: 600; cursor: pointer; color: var(--ink); }
+    .packages button:first-child { border-inline-start: 0; }
+    .packages button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+    select, input[type="text"] { width: 100%; font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > select, .row > input { flex: 1; min-width: 0; }
+
+    .btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+    .btn:hover { border-color: var(--ink); }
+    .btn-primary { flex: 1; background: var(--ink); border: 1px solid var(--ink); color: #fff; padding: 10px; font-weight: 600; border-radius: 8px; cursor: pointer; }
+    .btn-primary:disabled { background: #9aa5a2; border-color: #9aa5a2; cursor: not-allowed; }
+    .btn-small { padding: 4px 9px; font-size: 12px; }
+    .btn-fix { background: var(--go); border-color: var(--go); color: #fff; }
+    .btn-fix:hover { background: #0f5c44; border-color: #0f5c44; }
+    .actions-main { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+    .actions-main .btn { padding: 9px; }
+
+    .meter-count { font-size: 26px; font-weight: 600; line-height: 1; }
+    .meter-count small { font-size: 13px; font-weight: 400; color: var(--muted); }
+    .meter { display: grid; gap: 3px; margin: 10px 0 8px; }
     .meter span { aspect-ratio: 1; border-radius: 2px; background: var(--cell); }
     .meter span.on { background: var(--go); }
     .meter span.over { background: var(--stop); }
-    .meter-wrap.is-over .meter-count { color: var(--stop); }
+    .is-over .meter-count { color: var(--stop); }
+    .fit { font-size: 12.5px; color: var(--go); margin: 0 0 4px; }
+    .is-over .fit { color: var(--stop); }
     .types { color: var(--muted); font-size: 12px; }
 
-    .verdict { border-radius: 8px; padding: 10px 12px; font-weight: 500; margin-bottom: 14px; }
+    .verdict { border-radius: 8px; padding: 9px 12px; font-weight: 500; margin-bottom: 8px; font-size: 13px; }
     .verdict.ok { background: var(--go-soft); color: #0f5c44; }
     .verdict.bad { background: var(--stop-soft); color: var(--stop); }
 
-    .issue { background: var(--card); border: 1px solid var(--line); border-inline-start: 4px solid var(--stop); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+    .issue { border: 1px solid var(--line); border-inline-start: 4px solid var(--stop); border-radius: 8px; padding: 9px 11px; margin-top: 8px; }
+    .issue:first-child { margin-top: 0; }
     .issue.warning { border-inline-start-color: var(--warn); }
     .issue h3 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
     .issue p { margin: 0 0 8px; font-size: 12.5px; color: #34404a; unicode-bidi: plaintext; }
     .issue .actions { display: flex; flex-wrap: wrap; gap: 6px; }
-
-    details { margin-bottom: 12px; }
-    summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 6px 0; }
-    .plain { margin: 4px 0 0; padding: 0 0 0 18px; font-size: 12.5px; color: #34404a; }
+    .plain { margin: 0; padding: 0 0 0 18px; font-size: 12.5px; color: #34404a; }
     .plain li { margin-bottom: 4px; unicode-bidi: plaintext; }
-    .outline { font-size: 12px; color: #34404a; margin: 4px 0 0; padding: 0; list-style: none; }
+    .outline { font-size: 12px; color: #34404a; margin: 0; padding: 0; list-style: none; }
     .outline li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+    .outline li:last-child { border-bottom: 0; }
     .outline b { font-weight: 600; unicode-bidi: plaintext; }
 
-    .savebar { position: fixed; inset: auto 0 0 0; background: var(--paper); border-top: 1px solid var(--line); padding: 12px 14px; }
-    .savebar .row { margin-bottom: 8px; }
-    .status { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 18px; }
+    .savebar { position: fixed; inset: auto 0 0 0; background: var(--paper); border-top: 1px solid var(--line); padding: 0 12px 10px; }
+    .savebar .sec { margin: 8px 0 0; }
+    .savebar .row + .row { margin-top: 8px; }
+    .status { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .status:empty { display: none; }
     .status.good { color: var(--go); }
     .hidden { display: none !important; }
     .notice { background: var(--warn-soft); color: var(--warn); padding: 10px 12px; border-radius: 8px; font-size: 13px; }
-    @media (prefers-reduced-motion: no-preference) {
-      .meter span.on, .meter span.over { transition: background-color .25s; }
-    }
+    @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
   </style>
 </head>
 <body>
-  <h1>Typebot export</h1>
-  <p class="lede">Turn a chat-flow frame into a Typebot file.</p>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="chev" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <div class="top">
+    <h1>Typebot export</h1>
+    <button type="button" class="linkish" id="toggleAll">Collapse all</button>
+  </div>
 
   <div id="notInMiro" class="notice hidden">Open this page from the app icon inside a Miro board.</div>
 
-  <section id="setup">
-    <div class="field">
-      <h2 id="pkgLabel">Package limit</h2>
-      <div class="packages" role="group" aria-labelledby="pkgLabel" id="packages">
-        <button type="button" data-limit="15" aria-pressed="false">15</button>
-        <button type="button" data-limit="30" aria-pressed="true">30</button>
-        <button type="button" data-limit="75" aria-pressed="false">75</button>
-        <button type="button" data-limit="100" aria-pressed="false">100</button>
+  <div id="setup">
+    <section class="sec" data-sec="package">
+      <button type="button" class="sec-head"><span class="sec-title">Package limit</span><span class="sec-sum" id="sumPackage">30</span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body">
+        <div class="packages" role="group" aria-label="Package limit" id="packages">
+          <button type="button" data-limit="15" aria-pressed="false">15</button>
+          <button type="button" data-limit="30" aria-pressed="true">30</button>
+          <button type="button" data-limit="75" aria-pressed="false">75</button>
+          <button type="button" data-limit="100" aria-pressed="false">100</button>
+        </div>
+        <div class="hint">Using fewer components than the package allows is fine.</div>
       </div>
-    </div>
+    </section>
 
-    <div class="field">
-      <h2><label for="frameSelect">Frame to export</label></h2>
-      <div class="row">
-        <select id="frameSelect"><option value="">Loading frames…</option></select>
-        <button type="button" class="btn" id="useSelected" title="Use the frame selected on the board">Use selected</button>
+    <section class="sec" data-sec="frame">
+      <button type="button" class="sec-head"><span class="sec-title">Frame to export</span><span class="sec-sum" id="sumFrame">None</span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body">
+        <div class="row">
+          <select id="frameSelect" aria-label="Frame to export"><option value="">Loading frames…</option></select>
+          <button type="button" class="btn" id="useSelected" title="Use the frame selected on the board">Use selected</button>
+        </div>
+        <div class="hint">The frame name becomes the bot name. <button type="button" class="linkish" id="refreshFrames">Refresh list</button></div>
       </div>
-      <div class="hint">The frame name becomes the bot name. <button type="button" class="linkish" id="refreshFrames">Refresh list</button></div>
-    </div>
+    </section>
 
-    <div class="field">
-      <h2><label for="keyword">Restart keyword (Global Jump)</label></h2>
-      <input type="text" id="keyword" value="1006" />
-    </div>
+    <section class="sec" data-sec="keyword">
+      <button type="button" class="sec-head"><span class="sec-title">Restart keyword</span><span class="sec-sum" id="sumKeyword">1006</span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body">
+        <input type="text" id="keyword" value="1006" aria-label="Restart keyword (Global Jump)" />
+        <div class="hint">Typing this word restarts the bot (Global Jump).</div>
+      </div>
+    </section>
 
-    <button type="button" class="btn-primary" id="testBtn">Test flow</button>
+    <div class="actions-main">
+      <button type="button" class="btn-primary" id="testBtn">Test flow</button>
+      <button type="button" class="btn" id="bypassBtn">Export without testing</button>
+    </div>
     <div class="status" id="testStatus"></div>
-  </section>
+  </div>
 
-  <section id="results" class="hidden">
-    <div class="meter-wrap" id="meterWrap">
-      <div class="meter-count" id="meterCount"></div>
-      <div class="meter" id="meter" aria-hidden="true"></div>
-      <div class="types" id="types"></div>
-    </div>
+  <div id="results" class="hidden">
+    <section class="sec" data-sec="meter" id="secMeter">
+      <button type="button" class="sec-head"><span class="sec-title">Components</span><span class="sec-sum" id="sumMeter"></span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body" id="meterWrap">
+        <div class="meter-count" id="meterCount"></div>
+        <div class="meter" id="meter" aria-hidden="true"></div>
+        <p class="fit" id="fit"></p>
+        <div class="types" id="types"></div>
+      </div>
+    </section>
 
     <div class="verdict" id="verdict"></div>
 
-    <div id="errors"></div>
+    <section class="sec is-error" data-sec="errors" id="secErrors">
+      <button type="button" class="sec-head"><span class="sec-title">Must fix</span><span class="sec-sum" id="sumErrors"></span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body" id="errors"></div>
+    </section>
 
-    <details id="warnBox">
-      <summary id="warnTitle"></summary>
-      <div id="warnings"></div>
-    </details>
+    <section class="sec" data-sec="warnings" id="secWarnings">
+      <button type="button" class="sec-head"><span class="sec-title">Please check</span><span class="sec-sum" id="sumWarnings"></span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body" id="warnings"></div>
+    </section>
 
-    <details id="autoBox">
-      <summary id="autoTitle"></summary>
-      <ul class="plain" id="autoList"></ul>
-    </details>
+    <section class="sec" data-sec="auto" id="secAuto">
+      <button type="button" class="sec-head"><span class="sec-title">Fixed automatically</span><span class="sec-sum" id="sumAuto"></span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body"><ul class="plain" id="autoList"></ul></div>
+    </section>
 
-    <details id="outlineBox">
-      <summary>What will be exported</summary>
-      <ul class="outline" id="outline"></ul>
-    </details>
-  </section>
+    <section class="sec" data-sec="outline" id="secOutline">
+      <button type="button" class="sec-head"><span class="sec-title">What will be exported</span><span class="sec-sum" id="sumOutline"></span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body"><ul class="outline" id="outline"></ul></div>
+    </section>
+  </div>
 
   <div class="savebar hidden" id="savebar">
-    <div class="row">
-      <input type="text" id="fileName" aria-label="File name" />
-    </div>
-    <div class="row">
-      <button type="button" class="btn-primary" id="saveBtn">Save file…</button>
-      <button type="button" class="btn" id="retestBtn" title="Read the board again after you change it">Re-test</button>
-    </div>
-    <div class="status" id="saveStatus"></div>
+    <section class="sec" data-sec="save">
+      <button type="button" class="sec-head"><span class="sec-title">Save</span><span class="sec-sum" id="sumSave"></span><svg class="chev"><use href="#chev"/></svg></button>
+      <div class="sec-body">
+        <div class="row"><input type="text" id="fileName" aria-label="File name" /></div>
+        <div class="row">
+          <button type="button" class="btn-primary" id="saveBtn">Save file…</button>
+          <button type="button" class="btn" id="retestBtn" title="Read the board again after you change it">Re-test</button>
+        </div>
+        <div class="row hidden" id="anywayRow">
+          <button type="button" class="btn" id="anywayBtn" style="flex:1">Export anyway (fix automatically)</button>
+        </div>
+        <div class="status" id="saveStatus"></div>
+      </div>
+    </section>
   </div>
 
   <script src="converter.js"></script>
