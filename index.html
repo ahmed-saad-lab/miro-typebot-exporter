@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Typebot Exporter</title>
+  <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
+</head>
+<body>
+  <script>
+    // Miro loads this page in the background. Clicking the app icon opens the panel.
+    async function init() {
+      miro.board.ui.on('icon:click', async () => {
+        await miro.board.ui.openPanel({ url: 'app.html' });
+      });
+    }
+    init();
+  </script>
+</body>
+</html>

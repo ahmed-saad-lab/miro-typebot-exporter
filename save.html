@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Save Typebot file</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4f6f5; color: #172026;
+      font: 15px/1.55 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; }
+    main { width: min(440px, 92vw); background: #fff; border: 1px solid #d6dddb; border-radius: 12px; padding: 26px; }
+    h1 { font-size: 20px; margin: 0 0 6px; font-weight: 600; }
+    .file { unicode-bidi: plaintext; font-weight: 600; word-break: break-all; }
+    p { margin: 0 0 16px; color: #34404a; }
+    button { width: 100%; font: inherit; font-weight: 600; padding: 12px; border-radius: 8px; border: 1px solid #172026; background: #172026; color: #fff; cursor: pointer; }
+    button.secondary { background: #fff; color: #172026; margin-top: 8px; }
+    :focus-visible { outline: 2px solid #157a5b; outline-offset: 2px; }
+    .msg { margin-top: 14px; min-height: 22px; font-size: 14px; }
+    .msg.good { color: #157a5b; }
+    .msg.bad { color: #b3261e; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Save the Typebot file</h1>
+    <p>File: <span class="file" id="name"></span></p>
+    <button type="button" id="pick">Choose where to save</button>
+    <button type="button" class="secondary" id="dl">Save to Downloads instead</button>
+    <div class="msg" id="msg"></div>
+  </main>
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+      const raw = location.hash.slice(1);
+      const cut = raw.indexOf('|');
+      if (cut < 0) {
+        $('pick').disabled = $('dl').disabled = true;
+        $('msg').textContent = 'No file was passed to this page. Go back to Miro and press “Save file…”.';
+        $('msg').className = 'msg bad';
+        return;
+      }
+      const name = decodeURIComponent(raw.slice(0, cut));
+      const bin = atob(raw.slice(cut + 1));
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'application/json' });
+      $('name').textContent = name;
+      history.replaceState(null, '', location.pathname); // keep the bot out of the address bar
+
+      const done = (text) => { $('msg').textContent = text; $('msg').className = 'msg good'; };
+
+      if (!window.showSaveFilePicker) {
+        $('pick').textContent = 'Save file';
+        $('dl').classList.add('hidden');
+        $('dl').style.display = 'none';
+      }
+
+      $('pick').addEventListener('click', async () => {
+        if (!window.showSaveFilePicker) {
+          download();
+          done('Saved. Your browser decides the folder (usually Downloads). You can close this tab.');
+          return;
+        }
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: name,
+            types: [{ description: 'Typebot JSON', accept: { 'application/json': ['.json'] } }],
+          });
+          const w = await handle.createWritable();
+          await w.write(blob);
+          await w.close();
+          done(`Saved as “${handle.name}”. You can close this tab.`);
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+          download();
+          done('Saved to your Downloads folder. You can close this tab.');
+        }
+      });
+      $('dl').addEventListener('click', () => { download(); done('Saved to your Downloads folder. You can close this tab.'); });
+
+      function download() {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      }
+    })();
+  </script>
+</body>
+</html>

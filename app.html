@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Typebot Exporter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
+  <style>
+    :root {
+      --paper: #f4f6f5;
+      --card: #ffffff;
+      --ink: #172026;
+      --muted: #5b6770;
+      --line: #d6dddb;
+      --go: #157a5b;
+      --go-soft: #e3f2ec;
+      --warn: #9a5c00;
+      --warn-soft: #fbf0dc;
+      --stop: #b3261e;
+      --stop-soft: #fbe6e4;
+      --cell: #e4e9e7;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font: 14px/1.5 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+      padding: 16px 14px 120px;
+    }
+    h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+    .lede { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
+    h2 { font-size: 13px; font-weight: 600; margin: 0 0 8px; }
+    .field { margin-bottom: 18px; }
+    .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+
+    .packages { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--card); }
+    .packages button { border: 0; border-inline-start: 1px solid var(--line); background: transparent; padding: 9px 0; font: inherit; font-weight: 600; cursor: pointer; color: var(--ink); }
+    .packages button:first-child { border-inline-start: 0; }
+    .packages button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+
+    select, input[type="text"] {
+      width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink);
+    }
+    .row { display: flex; gap: 8px; align-items: center; }
+    .row > select { flex: 1; min-width: 0; }
+
+    button { font: inherit; }
+    .btn { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+    .btn:hover { border-color: var(--ink); }
+    .btn-primary { width: 100%; background: var(--ink); border-color: var(--ink); color: #fff; padding: 11px; font-weight: 600; }
+    .btn-primary:disabled { background: #9aa5a2; border-color: #9aa5a2; cursor: not-allowed; }
+    .btn-small { padding: 4px 9px; font-size: 12px; }
+    .btn-fix { background: var(--go); border-color: var(--go); color: #fff; }
+    .btn-fix:hover { border-color: #0f5c44; background: #0f5c44; }
+    .linkish { background: none; border: 0; color: var(--go); padding: 0; cursor: pointer; text-decoration: underline; font-size: 12px; }
+    :focus-visible { outline: 2px solid var(--go); outline-offset: 2px; }
+
+    /* meter: one cell per component the package allows */
+    .meter-wrap { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 20px 0 14px; }
+    .meter-count { font-size: 28px; font-weight: 600; line-height: 1; }
+    .meter-count small { font-size: 14px; font-weight: 400; color: var(--muted); }
+    .meter { display: grid; gap: 3px; margin: 12px 0 8px; }
+    .meter span { aspect-ratio: 1; border-radius: 2px; background: var(--cell); }
+    .meter span.on { background: var(--go); }
+    .meter span.over { background: var(--stop); }
+    .meter-wrap.is-over .meter-count { color: var(--stop); }
+    .types { color: var(--muted); font-size: 12px; }
+
+    .verdict { border-radius: 8px; padding: 10px 12px; font-weight: 500; margin-bottom: 14px; }
+    .verdict.ok { background: var(--go-soft); color: #0f5c44; }
+    .verdict.bad { background: var(--stop-soft); color: var(--stop); }
+
+    .issue { background: var(--card); border: 1px solid var(--line); border-inline-start: 4px solid var(--stop); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+    .issue.warning { border-inline-start-color: var(--warn); }
+    .issue h3 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
+    .issue p { margin: 0 0 8px; font-size: 12.5px; color: #34404a; unicode-bidi: plaintext; }
+    .issue .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    details { margin-bottom: 12px; }
+    summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 6px 0; }
+    .plain { margin: 4px 0 0; padding: 0 0 0 18px; font-size: 12.5px; color: #34404a; }
+    .plain li { margin-bottom: 4px; unicode-bidi: plaintext; }
+    .outline { font-size: 12px; color: #34404a; margin: 4px 0 0; padding: 0; list-style: none; }
+    .outline li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+    .outline b { font-weight: 600; unicode-bidi: plaintext; }
+
+    .savebar { position: fixed; inset: auto 0 0 0; background: var(--paper); border-top: 1px solid var(--line); padding: 12px 14px; }
+    .savebar .row { margin-bottom: 8px; }
+    .status { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 18px; }
+    .status.good { color: var(--go); }
+    .hidden { display: none !important; }
+    .notice { background: var(--warn-soft); color: var(--warn); padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+    @media (prefers-reduced-motion: no-preference) {
+      .meter span.on, .meter span.over { transition: background-color .25s; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Typebot export</h1>
+  <p class="lede">Turn a chat-flow frame into a Typebot file.</p>
+
+  <div id="notInMiro" class="notice hidden">Open this page from the app icon inside a Miro board.</div>
+
+  <section id="setup">
+    <div class="field">
+      <h2 id="pkgLabel">Package limit</h2>
+      <div class="packages" role="group" aria-labelledby="pkgLabel" id="packages">
+        <button type="button" data-limit="15" aria-pressed="false">15</button>
+        <button type="button" data-limit="30" aria-pressed="true">30</button>
+        <button type="button" data-limit="75" aria-pressed="false">75</button>
+        <button type="button" data-limit="100" aria-pressed="false">100</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <h2><label for="frameSelect">Frame to export</label></h2>
+      <div class="row">
+        <select id="frameSelect"><option value="">Loading frames…</option></select>
+        <button type="button" class="btn" id="useSelected" title="Use the frame selected on the board">Use selected</button>
+      </div>
+      <div class="hint">The frame name becomes the bot name. <button type="button" class="linkish" id="refreshFrames">Refresh list</button></div>
+    </div>
+
+    <div class="field">
+      <h2><label for="keyword">Restart keyword (Global Jump)</label></h2>
+      <input type="text" id="keyword" value="1006" />
+    </div>
+
+    <button type="button" class="btn-primary" id="testBtn">Test flow</button>
+    <div class="status" id="testStatus"></div>
+  </section>
+
+  <section id="results" class="hidden">
+    <div class="meter-wrap" id="meterWrap">
+      <div class="meter-count" id="meterCount"></div>
+      <div class="meter" id="meter" aria-hidden="true"></div>
+      <div class="types" id="types"></div>
+    </div>
+
+    <div class="verdict" id="verdict"></div>
+
+    <div id="errors"></div>
+
+    <details id="warnBox">
+      <summary id="warnTitle"></summary>
+      <div id="warnings"></div>
+    </details>
+
+    <details id="autoBox">
+      <summary id="autoTitle"></summary>
+      <ul class="plain" id="autoList"></ul>
+    </details>
+
+    <details id="outlineBox">
+      <summary>What will be exported</summary>
+      <ul class="outline" id="outline"></ul>
+    </details>
+  </section>
+
+  <div class="savebar hidden" id="savebar">
+    <div class="row">
+      <input type="text" id="fileName" aria-label="File name" />
+    </div>
+    <div class="row">
+      <button type="button" class="btn-primary" id="saveBtn">Save file…</button>
+      <button type="button" class="btn" id="retestBtn" title="Read the board again after you change it">Re-test</button>
+    </div>
+    <div class="status" id="saveStatus"></div>
+  </div>
+
+  <script src="converter.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
