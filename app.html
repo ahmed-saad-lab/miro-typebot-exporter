@@ -15,11 +15,14 @@
       --stop: #b3261e; --stop-soft: #fbe6e4; --cell: #e4e9e7;
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; }
+    html, body { margin: 0; height: 100%; }
     body {
       font: 14px/1.5 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif;
-      color: var(--ink); background: var(--paper); padding: 14px 12px 230px;
+      color: var(--ink); background: var(--paper);
+      display: flex; flex-direction: column; overflow: hidden;
     }
+    /* one scroll area for everything above the save bar */
+    .scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 12px 24px; scrollbar-width: thin; }
     .top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
     h1 { font-size: 17px; font-weight: 600; margin: 0; }
     button { font: inherit; }
@@ -90,7 +93,7 @@
     .outline li:last-child { border-bottom: 0; }
     .outline b { font-weight: 600; unicode-bidi: plaintext; }
 
-    .savebar { position: fixed; inset: auto 0 0 0; background: var(--paper); border-top: 1px solid var(--line); padding: 0 12px 10px; }
+    .savebar { flex: none; max-height: 55vh; overflow-y: auto; background: var(--paper); border-top: 1px solid var(--line); padding: 0 12px 10px; }
     .savebar .sec { margin: 8px 0 0; }
     .savebar .row + .row { margin-top: 8px; }
     .status { font-size: 12px; color: var(--muted); margin-top: 6px; }
@@ -126,6 +129,7 @@
     <symbol id="chev" viewBox="0 0 16 16"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </svg>
 
+  <div class="scroll" id="scroll">
   <div class="top">
     <h1>Typebot export</h1>
     <button type="button" class="linkish" id="toggleAll">Collapse all</button>
@@ -216,6 +220,8 @@
       <div class="sec-body"><ul class="outline" id="outline"></ul></div>
     </section>
   </div>
+
+  </div><!-- /scroll -->
 
   <div class="savebar hidden" id="savebar">
     <section class="sec" data-sec="save">
